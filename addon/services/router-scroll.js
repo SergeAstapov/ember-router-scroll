@@ -1,5 +1,5 @@
 import Service, { inject as service } from '@ember/service';
-import { computed, set, get, action } from '@ember/object';
+import { set, get, action } from '@ember/object';
 import { typeOf } from '@ember/utils';
 import { assert } from '@ember/debug';
 import { getOwner } from '@ember/application';
@@ -28,11 +28,20 @@ function tryScrollRecursively(fn, scrollHash, element) {
   let documentHeight;
   // read DOM outside of rAF
   if (element) {
-    documentHeight = Math.max(element.scrollHeight, element.offsetHeight, element.clientHeight);
+    documentHeight = Math.max(
+      element.scrollHeight,
+      element.offsetHeight,
+      element.clientHeight
+    );
   } else {
     const { body, documentElement: html } = document;
-    documentHeight = Math.max(body.scrollHeight, body.offsetHeight,
-      html.clientHeight, html.scrollHeight, html.offsetHeight);
+    documentHeight = Math.max(
+      body.scrollHeight,
+      body.offsetHeight,
+      html.clientHeight,
+      html.scrollHeight,
+      html.offsetHeight
+    );
   }
 
   callbackRequestId = window.requestAnimationFrame(() => {
@@ -42,20 +51,19 @@ function tryScrollRecursively(fn, scrollHash, element) {
       fn.call(null, scrollHash.x, scrollHash.y);
     } else {
       ATTEMPTS++;
-      tryScrollRecursively(fn, scrollHash, element)
+      tryScrollRecursively(fn, scrollHash, element);
     }
-  })
+  });
 }
 
 // to prevent scheduleOnce calling multiple times, give it the same ref to this function
-const CALLBACK = function(transition) {
+const CALLBACK = function (transition) {
   this.updateScrollPosition(transition);
-}
+};
 
 class RouterScroll extends Service {
   @service router;
 
-  @computed
   get isFastBoot() {
     const fastboot = getOwner(this).lookup('service:fastboot');
     return fastboot ? fastboot.get('isFastBoot') : false;
@@ -77,14 +85,16 @@ class RouterScroll extends Service {
     setupRouter(this.router);
   }
 
+  // eslint-disable-next-line ember/classic-decorator-hooks
   init(...args) {
     super.init(...args);
 
     this._loadConfig();
     set(this, 'scrollMap', {
       default: {
-        x: 0, y: 0
-      }
+        x: 0,
+        y: 0,
+      },
     });
 
     addListener(this.router, 'routeWillChange', this._routeWillChange);
@@ -113,21 +123,26 @@ class RouterScroll extends Service {
    * @param {transition|transition[]} transition If before Ember 3.6, this will be an array of transitions, otherwise
    */
   updateScrollPosition(transition) {
-    const url = get(this, 'currentURL');
-    const hashElement = url ? document.getElementById(url.split('#').pop()) : null;
+    const url = this.currentURL;
+    const hashElement = url
+      ? document.getElementById(url.split('#').pop())
+      : null;
 
-    if (get(this, 'isFirstLoad')) {
+    if (this.isFirstLoad) {
       this.unsetFirstLoad();
     }
 
-    let scrollPosition = get(this, 'position');
+    let scrollPosition = this.position;
 
     if (url && url.indexOf('#') > -1 && hashElement) {
       scrollPosition = { x: hashElement.offsetLeft, y: hashElement.offsetTop };
     }
 
     // If `preserveScrollPosition` was not set on the controller, attempt fallback to `preserveScrollPosition` which was set on the router service.
-    let preserveScrollPosition = (get(transition, 'router.currentRouteInfos') || []).some((routeInfo) => get(routeInfo, 'route.controller.preserveScrollPosition')) || get(this, 'preserveScrollPosition')
+    let preserveScrollPosition =
+      (transition.router.currentRouteInfos || []).some(
+        (routeInfo) => routeInfo.route.controller.preserveScrollPosition
+      ) || this.preserveScrollPosition;
 
     if (!preserveScrollPosition) {
       const { scrollElement, targetElement } = this;
@@ -141,7 +156,7 @@ class RouterScroll extends Service {
           let fn = (x, y) => {
             element.scrollLeft = x;
             element.scrollTop = y;
-          }
+          };
           tryScrollRecursively(fn, scrollPosition, element);
         }
       }
@@ -152,7 +167,7 @@ class RouterScroll extends Service {
 
   @action
   _routeWillChange() {
-    if (get(this, 'isFastBoot')) {
+    if (this.isFastBoot) {
       return;
     }
 
@@ -161,12 +176,12 @@ class RouterScroll extends Service {
 
   @action
   _routeDidChange(transition) {
-    if (get(this, 'isFastBoot')) {
+    if (this.isFastBoot) {
       return;
     }
 
-    const scrollWhenIdle = get(this, 'scrollWhenIdle');
-    const scrollWhenAfterRender = get(this, 'scrollWhenAfterRender');
+    const scrollWhenIdle = this.scrollWhenIdle;
+    const scrollWhenAfterRender = this.scrollWhenAfterRender;
 
     if (!scrollWhenIdle && !scrollWhenAfterRender) {
       // out of the option, this happens on the tightest schedule
@@ -186,14 +201,14 @@ class RouterScroll extends Service {
   }
 
   update() {
-    if (get(this, 'isFastBoot') || get(this, 'isFirstLoad')) {
+    if (this.isFastBoot || this.isFirstLoad) {
       return;
     }
 
-    const scrollElement = get(this, 'scrollElement');
-    const targetElement = get(this, 'targetElement');
-    const scrollMap = get(this, 'scrollMap');
-    const key = get(this, 'key');
+    const scrollElement = this.scrollElement;
+    const targetElement = this.targetElement;
+    const scrollMap = this.scrollMap;
+    const key = this.key;
     let x;
     let y;
 
@@ -207,7 +222,7 @@ class RouterScroll extends Service {
         // of the targetElement on screen
         set(scrollMap, 'default', {
           x,
-          y
+          y,
         });
       }
     } else if ('window' === scrollElement) {
@@ -226,7 +241,7 @@ class RouterScroll extends Service {
     if (key && 'number' === typeOf(x) && 'number' === typeOf(y)) {
       set(scrollMap, key, {
         x,
-        y
+        y,
       });
     }
   }
@@ -238,7 +253,10 @@ class RouterScroll extends Service {
       const scrollElement = config.routerScroll.scrollElement;
       const targetElement = config.routerScroll.targetElement;
 
-      assert('You defined both scrollElement and targetElement in your config. We currently only support definining one of them', !(scrollElement && targetElement));
+      assert(
+        'You defined both scrollElement and targetElement in your config. We currently only support defining one of them',
+        !(scrollElement && targetElement)
+      );
 
       if ('string' === typeOf(scrollElement)) {
         set(this, 'scrollElement', scrollElement);
@@ -248,10 +266,8 @@ class RouterScroll extends Service {
         set(this, 'targetElement', targetElement);
       }
 
-      const {
-        scrollWhenIdle = false,
-        scrollWhenAfterRender = false
-      } = config.routerScroll;
+      const { scrollWhenIdle = false, scrollWhenAfterRender = false } =
+        config.routerScroll;
       set(this, 'scrollWhenIdle', scrollWhenIdle);
       set(this, 'scrollWhenAfterRender', scrollWhenAfterRender);
     }
@@ -261,14 +277,14 @@ class RouterScroll extends Service {
 Object.defineProperty(RouterScroll.prototype, 'position', {
   configurable: true,
   get() {
-    const scrollMap = get(this, 'scrollMap');
-    const stateUuid = get(window, 'history.state.uuid');
+    const scrollMap = this.scrollMap;
+    const stateUuid = window.history.state?.uuid;
 
     set(this, 'key', stateUuid);
-    const key = get(this, 'key') ||  '-1';
+    const key = this.key || '-1';
 
     return get(scrollMap, key) || scrollMap.default;
-  }
+  },
 });
 
 export default RouterScroll;
